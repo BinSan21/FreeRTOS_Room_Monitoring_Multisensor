@@ -121,9 +121,10 @@ bool DHT22_Read(float *temperature, float *humidity) {
     taskENTER_CRITICAL();
 
     HAL_GPIO_WritePin(DHT22_PORT, DHT22_PIN, GPIO_PIN_SET);
-    delay_us(30);
     dht22_pin_input();
+    delay_us(20);
 
+    /* Wait for DHT22 response: LOW (~80us) -> HIGH (~80us) -> LOW (start of bit 0) */
     if (!wait_for_pin_state(GPIO_PIN_RESET, 100) ||
         !wait_for_pin_state(GPIO_PIN_SET, 100)   ||
         !wait_for_pin_state(GPIO_PIN_RESET, 100)) {
@@ -152,12 +153,12 @@ bool DHT22_Read(float *temperature, float *humidity) {
     taskEXIT_CRITICAL();
 
     uint8_t checksum = (uint8_t)(data[0] + data[1] + data[2] + data[3]);
-    if (checksum != data[4]) {
-        return false;
-    }
-
     uint16_t raw_hum = ((uint16_t)data[0] << 8) | data[1];
     uint16_t raw_temp = ((uint16_t)data[2] << 8) | data[3];
+
+    if (checksum != data[4] || raw_hum == 0 || raw_hum > 1000) {
+        return false;
+    }
 
     *humidity = (float)raw_hum / 10.0f;
     if (raw_temp & 0x8000) {

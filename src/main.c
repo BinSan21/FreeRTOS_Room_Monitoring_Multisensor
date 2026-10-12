@@ -2,6 +2,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "sensors.h"
+#include "rtos_objects.h"
 #include <stdio.h>
 
 UART_HandleTypeDef huart1;
@@ -60,22 +61,33 @@ static void MX_USART1_UART_Init(void) {
     HAL_UART_Init(&huart1);
 }
 
-/* Part IV: Periodic SensorTask using vTaskDelayUntil() */
+/* Producer: SensorTask (Priority 2) reads sensors and pushes to queue */
 static void vSensorTask(void *pvParameters) {
     (void)pvParameters;
     TickType_t lastWakeTime = xTaskGetTickCount();
-    float temp = 0.0f;
-    float hum = 0.0f;
+    SensorData data = {0.0f, 0.0f, 0, false};
 
     for (;;) {
-        int light = LDR_ReadPercent();
-        if (DHT22_Read(&temp, &hum)) {
-            printf("Temperature: %.2f C | Humidity: %.2f %% | Light: %d %%\r\n",
-                   temp, hum, light);
+        data.lightLevel = LDR_ReadPercent();
+        if (DHT22_Read(&data.temperature, &data.humidity)) {
+            xQueueSend(xSensorDisplayQueue, &data, 0);
         } else {
-            printf("DHT22 read error | Light: %d %%\r\n", light);
+            printf("[SensorTask] DHT22 read error\r\n");
         }
         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(2000));
+    }
+}
+
+/* Consumer: DisplayTask (Priority 1) blocks until SensorData arrives on queue */
+static void vDisplayTask(void *pvParameters) {
+    (void)pvParameters;
+    SensorData received = {0};
+
+    for (;;) {
+        if (xQueueReceive(xSensorDisplayQueue, &received, portMAX_DELAY) == pdPASS) {
+            printf("[Queue -> DisplayTask] Temp: %.2f C | Hum: %.2f %% | Light: %d %%\r\n",
+                   received.temperature, received.humidity, received.lightLevel);
+        }
     }
 }
 
@@ -106,11 +118,13 @@ int main(void) {
     SystemClock_Config();
     MX_USART1_UART_Init();
     Sensors_Init();
+    RTOS_Objects_Init();
 
     printf("BCA182 FreeRTOS Multisensor\r\n");
     printf("System starting...\r\n");
 
-    xTaskCreate(vSensorTask, "SensorTask", 256, NULL, 2, NULL);
+    xTaskCreate(vSensorTask,  "SensorTask",  256, NULL, 2, NULL);
+    xTaskCreate(vDisplayTask, "DisplayTask", 256, NULL, 1, NULL);
 
     vTaskStartScheduler();
 
