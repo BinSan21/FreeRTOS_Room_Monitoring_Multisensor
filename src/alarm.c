@@ -37,6 +37,17 @@ void Alarm_Init(void) {
 }
 
 void Alarm_SetBuzzer(bool active) {
-    HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, active ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    if (active) {
+        /* Generate a short audible square-wave burst (~1 kHz) so Wokwi shows the sound icon */
+        for (int i = 0; i < 40; i++) {
+            HAL_GPIO_TogglePin(BUZZER_PORT, BUZZER_PIN);
+            for (volatile int d = 0; d < 4000; d++) {
+                __NOP();
+            }
+        }
+        HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_SET);
+    } else {
+        HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
+    }
 }
 #endif
