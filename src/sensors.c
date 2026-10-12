@@ -5,6 +5,10 @@
 
 #define DHT22_PORT GPIOA
 #define DHT22_PIN  GPIO_PIN_1
+#define LDR_PORT   GPIOA
+#define LDR_PIN    GPIO_PIN_0
+
+static ADC_HandleTypeDef hadc1;
 
 static void delay_us(uint16_t us) {
     TIM2->CNT = 0;
@@ -39,6 +43,37 @@ static bool wait_for_pin_state(GPIO_PinState state, uint16_t timeout_us) {
     return true;
 }
 
+static void adc1_init(void) {
+    __HAL_RCC_ADC1_CLK_ENABLE();
+
+    RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+    PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6; /* 72MHz / 6 = 12MHz */
+    HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit);
+
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = LDR_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    HAL_GPIO_Init(LDR_PORT, &GPIO_InitStruct);
+
+    hadc1.Instance = ADC1;
+    hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+    hadc1.Init.ContinuousConvMode = DISABLE;
+    hadc1.Init.DiscontinuousConvMode = DISABLE;
+    hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+    hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+    hadc1.Init.NbrOfConversion = 1;
+    HAL_ADC_Init(&hadc1);
+
+    ADC_ChannelConfTypeDef sConfig = {0};
+    sConfig.Channel = ADC_CHANNEL_0;
+    sConfig.Rank = ADC_REGULAR_RANK_1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;
+    HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+
+    HAL_ADCEx_Calibration_Start(&hadc1);
+}
+
 void Sensors_Init(void) {
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_TIM2_CLK_ENABLE();
@@ -56,12 +91,29 @@ void Sensors_Init(void) {
 
     dht22_pin_output();
     HAL_GPIO_WritePin(DHT22_PORT, DHT22_PIN, GPIO_PIN_SET);
+
+    adc1_init();
+}
+
+int LDR_ReadPercent(void) {
+    uint32_t raw = 0;
+    if (HAL_ADC_Start(&hadc1) == HAL_OK) {
+        if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
+            raw = HAL_ADC_GetValue(&hadc1);
+        }
+        HAL_ADC_Stop(&hadc1);
+    }
+    if (raw > 4095U) {
+        raw = 4095U;
+    }
+    /* Wokwi photoresistor AO voltage drops as light increases: invert 0..4095 to 0..100% */
+    int percent = (int)(((4095U - raw) * 100U + 2047U) / 4095U);
+    return percent;
 }
 
 bool DHT22_Read(float *temperature, float *humidity) {
     uint8_t data[5] = {0, 0, 0, 0, 0};
 
-    /* 1. Pull low for at least 1 ms using RTOS delay or TIM2 */
     dht22_pin_output();
     HAL_GPIO_WritePin(DHT22_PORT, DHT22_PIN, GPIO_PIN_RESET);
     delay_us(1200);
@@ -72,7 +124,6 @@ bool DHT22_Read(float *temperature, float *humidity) {
     delay_us(30);
     dht22_pin_input();
 
-    /* 2. Wait for DHT22 response: LOW (~80us) -> HIGH (~80us) -> LOW */
     if (!wait_for_pin_state(GPIO_PIN_RESET, 100) ||
         !wait_for_pin_state(GPIO_PIN_SET, 100)   ||
         !wait_for_pin_state(GPIO_PIN_RESET, 100)) {
@@ -80,7 +131,6 @@ bool DHT22_Read(float *temperature, float *humidity) {
         return false;
     }
 
-    /* 3. Read 40 bits */
     for (int i = 0; i < 40; i++) {
         if (!wait_for_pin_state(GPIO_PIN_SET, 100)) {
             taskEXIT_CRITICAL();
@@ -101,7 +151,6 @@ bool DHT22_Read(float *temperature, float *humidity) {
 
     taskEXIT_CRITICAL();
 
-    /* 4. Verify checksum */
     uint8_t checksum = (uint8_t)(data[0] + data[1] + data[2] + data[3]);
     if (checksum != data[4]) {
         return false;

@@ -68,11 +68,12 @@ static void vSensorTask(void *pvParameters) {
     float hum = 0.0f;
 
     for (;;) {
+        int light = LDR_ReadPercent();
         if (DHT22_Read(&temp, &hum)) {
-            printf("Temperature: %.2f C\r\n", temp);
-            printf("Humidity: %.2f %%\r\n", hum);
+            printf("Temperature: %.2f C | Humidity: %.2f %% | Light: %d %%\r\n",
+                   temp, hum, light);
         } else {
-            printf("DHT22 read error\r\n");
+            printf("DHT22 read error | Light: %d %%\r\n", light);
         }
         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(2000));
     }
