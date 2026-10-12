@@ -1,18 +1,17 @@
 #include "stm32f1xx_hal.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "sensors.h"
 #include <stdio.h>
 
 UART_HandleTypeDef huart1;
 
-/* Redirect printf() to USART1 for Wokwi Serial Monitor */
 int _write(int file, char *ptr, int len) {
     (void)file;
     HAL_UART_Transmit(&huart1, (uint8_t *)ptr, (uint16_t)len, HAL_MAX_DELAY);
     return len;
 }
 
-/* Configure STM32F103 system clock to 72 MHz (HSE 8MHz * PLL 9) */
 static void SystemClock_Config(void) {
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
@@ -40,13 +39,11 @@ static void MX_USART1_UART_Init(void) {
     __HAL_RCC_USART1_CLK_ENABLE();
 
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    /* PA9 -> USART1_TX */
     GPIO_InitStruct.Pin = GPIO_PIN_9;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* PA10 -> USART1_RX */
     GPIO_InitStruct.Pin = GPIO_PIN_10;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -63,24 +60,24 @@ static void MX_USART1_UART_Init(void) {
     HAL_UART_Init(&huart1);
 }
 
-/* Part III: Two Simple Periodic FreeRTOS Tasks */
-static void vTaskA(void *pvParameters) {
+/* Part IV: Periodic SensorTask using vTaskDelayUntil() */
+static void vSensorTask(void *pvParameters) {
     (void)pvParameters;
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    float temp = 0.0f;
+    float hum = 0.0f;
+
     for (;;) {
-        printf("Task A running\r\n");
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        if (DHT22_Read(&temp, &hum)) {
+            printf("Temperature: %.2f C\r\n", temp);
+            printf("Humidity: %.2f %%\r\n", hum);
+        } else {
+            printf("DHT22 read error\r\n");
+        }
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(2000));
     }
 }
 
-static void vTaskB(void *pvParameters) {
-    (void)pvParameters;
-    for (;;) {
-        printf("Task B running\r\n");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
-
-/* FreeRTOS Hook & Assertion Stubs required by FreeRTOSConfig.h */
 void vApplicationTickHook(void) {
 }
 
@@ -107,12 +104,12 @@ int main(void) {
     HAL_Init();
     SystemClock_Config();
     MX_USART1_UART_Init();
+    Sensors_Init();
 
     printf("BCA182 FreeRTOS Multisensor\r\n");
     printf("System starting...\r\n");
 
-    xTaskCreate(vTaskA, "TaskA", 128, NULL, 1, NULL);
-    xTaskCreate(vTaskB, "TaskB", 128, NULL, 1, NULL);
+    xTaskCreate(vSensorTask, "SensorTask", 256, NULL, 2, NULL);
 
     vTaskStartScheduler();
 

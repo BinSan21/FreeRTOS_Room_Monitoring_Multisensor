@@ -9,11 +9,24 @@
       "top": 0,
       "left": 0,
       "attrs": {}
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht1",
+      "top": -20,
+      "left": 140,
+      "attrs": {
+        "temperature": "25.4",
+        "humidity": "61.2"
+      }
     }
   ],
   "connections": [
     [ "stm32:A9", "$serialMonitor:RX", "", [] ],
-    [ "stm32:A10", "$serialMonitor:TX", "", [] ]
+    [ "stm32:A10", "$serialMonitor:TX", "", [] ],
+    [ "dht1:VCC", "stm32:3V3", "red", [] ],
+    [ "dht1:GND", "stm32:GND.1", "black", [] ],
+    [ "dht1:SDA", "stm32:A1", "green", [] ]
   ],
   "dependencies": {}
 }
