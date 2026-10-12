@@ -4,6 +4,8 @@
 #include "sensors.h"
 #include "rtos_objects.h"
 #include "display.h"
+#include "input.h"
+#include "alarm.h"
 #include <stdio.h>
 
 UART_HandleTypeDef huart1;
@@ -72,6 +74,7 @@ static void vSensorTask(void *pvParameters) {
         data.lightLevel = LDR_ReadPercent();
         if (DHT22_Read(&data.temperature, &data.humidity)) {
             xQueueSend(xSensorDisplayQueue, &data, 0);
+            xQueueSend(xSensorAlarmQueue, &data, 0);
         } else {
             printf("[SensorTask] DHT22 read error\r\n");
         }
@@ -123,6 +126,27 @@ static void vInputTask(void *pvParameters) {
     }
 }
 
+/* Part VIII: AlarmTask (Priority 2) evaluates temperature and drives buzzer */
+static void vAlarmTask(void *pvParameters) {
+    (void)pvParameters;
+    SensorData data = {0};
+
+    for (;;) {
+        if (xQueueReceive(xSensorAlarmQueue, &data, portMAX_DELAY) == pdPASS) {
+            AlarmState state = evaluateTemperature(data.temperature);
+            if (state == ALARM_STATE_LOW_TEMPERATURE) {
+                Alarm_SetBuzzer(true);
+                printf("[AlarmTask] LOW TEMP ALARM (%.2f C < 18.0 C) - Buzzer ON\r\n", data.temperature);
+            } else if (state == ALARM_STATE_HIGH_TEMPERATURE) {
+                Alarm_SetBuzzer(true);
+                printf("[AlarmTask] HIGH TEMP ALARM (%.2f C > 30.0 C) - Buzzer ON\r\n", data.temperature);
+            } else {
+                Alarm_SetBuzzer(false);
+            }
+        }
+    }
+}
+
 void vApplicationTickHook(void) {
 }
 
@@ -151,6 +175,8 @@ int main(void) {
     MX_USART1_UART_Init();
     Sensors_Init();
     Display_Init();
+    Input_Init();
+    Alarm_Init();
     RTOS_Objects_Init();
 
     printf("BCA182 FreeRTOS Multisensor\r\n");
@@ -158,6 +184,7 @@ int main(void) {
 
     xTaskCreate(vInputTask,   "InputTask",   256, NULL, 3, NULL);
     xTaskCreate(vSensorTask,  "SensorTask",  512, NULL, 2, NULL);
+    xTaskCreate(vAlarmTask,   "AlarmTask",   512, NULL, 2, NULL);
     xTaskCreate(vDisplayTask, "DisplayTask", 512, NULL, 1, NULL);
 
     vTaskStartScheduler();

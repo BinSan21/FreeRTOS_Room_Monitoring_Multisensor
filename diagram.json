@@ -42,6 +42,15 @@
       "top": 140,
       "left": -170,
       "attrs": {}
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": -110,
+      "left": -140,
+      "attrs": {
+        "volume": "0.2"
+      }
     }
   ],
   "connections": [
@@ -61,7 +70,9 @@
     [ "encoder1:GND", "stm32:GND.1", "black", [] ],
     [ "encoder1:CLK", "stm32:B12", "cyan", [] ],
     [ "encoder1:DT", "stm32:B13", "magenta", [] ],
-    [ "encoder1:SW", "stm32:B14", "white", [] ]
+    [ "encoder1:SW", "stm32:B14", "white", [] ],
+    [ "bz1:1", "stm32:GND.2", "black", [] ],
+    [ "bz1:2", "stm32:A8", "purple", [] ]
   ],
   "dependencies": {}
 }
