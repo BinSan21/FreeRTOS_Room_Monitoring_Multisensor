@@ -13,8 +13,8 @@
     {
       "type": "wokwi-dht22",
       "id": "dht1",
-      "top": -20,
-      "left": 140,
+      "top": -40,
+      "left": 150,
       "attrs": {
         "temperature": "25.4",
         "humidity": "61.2"
@@ -23,20 +23,33 @@
     {
       "type": "wokwi-photoresistor-sensor",
       "id": "ldr1",
-      "top": 120,
-      "left": 140,
+      "top": 110,
+      "left": 150,
       "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled1",
+      "top": 10,
+      "left": -170,
+      "attrs": {
+        "i2cAddress": "0x3c"
+      }
     }
   ],
-  "connections": [
+"connections": [
     [ "stm32:A9", "$serialMonitor:RX", "", [] ],
     [ "stm32:A10", "$serialMonitor:TX", "", [] ],
-    [ "dht1:VCC", "stm32:3V3", "red", [] ],
+    [ "dht1:VCC", "stm32:3V3.1", "red", [] ],
     [ "dht1:GND", "stm32:GND.1", "black", [] ],
     [ "dht1:SDA", "stm32:A1", "green", [] ],
-    [ "ldr1:VCC", "stm32:3V3", "red", [] ],
+    [ "ldr1:VCC", "stm32:3V3.1", "red", [] ],
     [ "ldr1:GND", "stm32:GND.1", "black", [] ],
-    [ "ldr1:AO", "stm32:A0", "yellow", [] ]
+    [ "ldr1:AO", "stm32:A0", "yellow", [] ],
+    [ "oled1:VCC", "stm32:3V3.1", "red", [] ],
+    [ "oled1:GND", "stm32:GND.1", "black", [] ],
+    [ "oled1:SCL", "stm32:B6", "blue", [] ],
+    [ "oled1:SDA", "stm32:B7", "orange", [] ]
   ],
   "dependencies": {}
 }

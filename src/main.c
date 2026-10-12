@@ -3,6 +3,7 @@
 #include "task.h"
 #include "sensors.h"
 #include "rtos_objects.h"
+#include "display.h"
 #include <stdio.h>
 
 UART_HandleTypeDef huart1;
@@ -85,6 +86,7 @@ static void vDisplayTask(void *pvParameters) {
 
     for (;;) {
         if (xQueueReceive(xSensorDisplayQueue, &received, portMAX_DELAY) == pdPASS) {
+            Display_RenderTemperature(received.temperature);
             printf("[Queue -> DisplayTask] Temp: %.2f C | Hum: %.2f %% | Light: %d %%\r\n",
                    received.temperature, received.humidity, received.lightLevel);
         }
@@ -118,13 +120,14 @@ int main(void) {
     SystemClock_Config();
     MX_USART1_UART_Init();
     Sensors_Init();
+    Display_Init();
     RTOS_Objects_Init();
 
     printf("BCA182 FreeRTOS Multisensor\r\n");
     printf("System starting...\r\n");
 
-    xTaskCreate(vSensorTask,  "SensorTask",  256, NULL, 2, NULL);
-    xTaskCreate(vDisplayTask, "DisplayTask", 256, NULL, 1, NULL);
+    xTaskCreate(vSensorTask,  "SensorTask",  512, NULL, 2, NULL);
+    xTaskCreate(vDisplayTask, "DisplayTask", 512, NULL, 1, NULL);
 
     vTaskStartScheduler();
 
