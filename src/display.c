@@ -280,3 +280,34 @@ void Display_RenderTemperature(float temperature) {
     ssd1306_draw_string(5, 36, val_buf);
     ssd1306_update_screen();
 }
+
+void Display_RenderScreen(const SensorData *data, DisplayMode mode) {
+    char val_buf[24];
+    memset(ssd1306_buffer, 0x00, sizeof(ssd1306_buffer));
+    ssd1306_draw_string(1, 20, "ROOM MONITOR");
+
+    switch (mode) {
+        case DISPLAY_MODE_TEMPERATURE:
+            ssd1306_draw_string(3, 24, "Temperature");
+            snprintf(val_buf, sizeof(val_buf), "%.1f C", data->temperature);
+            ssd1306_draw_string(5, 36, val_buf);
+            break;
+        case DISPLAY_MODE_HUMIDITY:
+            ssd1306_draw_string(3, 30, "Humidity");
+            snprintf(val_buf, sizeof(val_buf), "%.1f %%", data->humidity);
+            ssd1306_draw_string(5, 36, val_buf);
+            break;
+        case DISPLAY_MODE_LIGHT:
+            ssd1306_draw_string(3, 24, "Light Level");
+            snprintf(val_buf, sizeof(val_buf), "%d %%", data->lightLevel);
+            ssd1306_draw_string(5, 42, val_buf);
+            break;
+        case DISPLAY_MODE_MOTION:
+            ssd1306_draw_string(3, 36, "Motion");
+            ssd1306_draw_string(5, 24, data->motionDetected ? "DETECTED" : "NO MOTION");
+            break;
+        default:
+            break;
+    }
+    ssd1306_update_screen();
+}

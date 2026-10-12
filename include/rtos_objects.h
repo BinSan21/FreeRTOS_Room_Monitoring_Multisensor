@@ -6,11 +6,9 @@
 #include "semphr.h"
 #include "event_groups.h"
 
-/* Queue used by SensorTask to send SensorData to DisplayTask */
 extern QueueHandle_t xSensorDisplayQueue;
-
-/* Queue used by SensorTask to send SensorData to AlarmTask */
 extern QueueHandle_t xSensorAlarmQueue;
+extern QueueHandle_t xDisplayModeQueue;
 
 void RTOS_Objects_Init(void);
 

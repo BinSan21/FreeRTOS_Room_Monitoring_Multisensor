@@ -35,9 +35,16 @@
       "attrs": {
         "i2cAddress": "0x3c"
       }
+    },
+    {
+      "type": "wokwi-ky-040",
+      "id": "encoder1",
+      "top": 140,
+      "left": -170,
+      "attrs": {}
     }
   ],
-"connections": [
+  "connections": [
     [ "stm32:A9", "$serialMonitor:RX", "", [] ],
     [ "stm32:A10", "$serialMonitor:TX", "", [] ],
     [ "dht1:VCC", "stm32:3V3.1", "red", [] ],
@@ -49,7 +56,12 @@
     [ "oled1:VCC", "stm32:3V3.1", "red", [] ],
     [ "oled1:GND", "stm32:GND.1", "black", [] ],
     [ "oled1:SCL", "stm32:B6", "blue", [] ],
-    [ "oled1:SDA", "stm32:B7", "orange", [] ]
+    [ "oled1:SDA", "stm32:B7", "orange", [] ],
+    [ "encoder1:VCC", "stm32:3V3.1", "red", [] ],
+    [ "encoder1:GND", "stm32:GND.1", "black", [] ],
+    [ "encoder1:CLK", "stm32:B12", "cyan", [] ],
+    [ "encoder1:DT", "stm32:B13", "magenta", [] ],
+    [ "encoder1:SW", "stm32:B14", "white", [] ]
   ],
   "dependencies": {}
 }

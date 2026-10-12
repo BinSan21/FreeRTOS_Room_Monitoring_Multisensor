@@ -79,17 +79,47 @@ static void vSensorTask(void *pvParameters) {
     }
 }
 
-/* Consumer: DisplayTask (Priority 1) blocks until SensorData arrives on queue */
+/* Consumer: DisplayTask (Priority 1) updates OLED on new sensor data or encoder change */
 static void vDisplayTask(void *pvParameters) {
     (void)pvParameters;
-    SensorData received = {0};
+    SensorData latestData = {25.4f, 61.2f, 76, false};
+    DisplayMode currentMode = DISPLAY_MODE_TEMPERATURE;
+
+    Display_RenderScreen(&latestData, currentMode);
 
     for (;;) {
-        if (xQueueReceive(xSensorDisplayQueue, &received, portMAX_DELAY) == pdPASS) {
-            Display_RenderTemperature(received.temperature);
-            printf("[Queue -> DisplayTask] Temp: %.2f C | Hum: %.2f %% | Light: %d %%\r\n",
-                   received.temperature, received.humidity, received.lightLevel);
+        bool needsRedraw = false;
+        if (xQueueReceive(xDisplayModeQueue, &currentMode, pdMS_TO_TICKS(50)) == pdPASS) {
+            needsRedraw = true;
         }
+        if (xQueueReceive(xSensorDisplayQueue, &latestData, 0) == pdPASS) {
+            printf("[Queue -> DisplayTask] Temp: %.2f C | Hum: %.2f %% | Light: %d %%\r\n",
+                   latestData.temperature, latestData.humidity, latestData.lightLevel);
+            needsRedraw = true;
+        }
+        if (needsRedraw) {
+            Display_RenderScreen(&latestData, currentMode);
+        }
+    }
+}
+
+/* Part VII: InputTask (Priority 3) polls rotary encoder and updates DisplayMode */
+static void vInputTask(void *pvParameters) {
+    (void)pvParameters;
+    DisplayMode mode = DISPLAY_MODE_TEMPERATURE;
+
+    for (;;) {
+        int step = Input_PollEncoderStep();
+        if (step > 0) {
+            mode = nextDisplayMode(mode);
+            xQueueSend(xDisplayModeQueue, &mode, 0);
+            printf("[InputTask] Encoder CW -> Mode %d\r\n", (int)mode);
+        } else if (step < 0) {
+            mode = previousDisplayMode(mode);
+            xQueueSend(xDisplayModeQueue, &mode, 0);
+            printf("[InputTask] Encoder CCW -> Mode %d\r\n", (int)mode);
+        }
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
 
@@ -126,6 +156,7 @@ int main(void) {
     printf("BCA182 FreeRTOS Multisensor\r\n");
     printf("System starting...\r\n");
 
+    xTaskCreate(vInputTask,   "InputTask",   256, NULL, 3, NULL);
     xTaskCreate(vSensorTask,  "SensorTask",  512, NULL, 2, NULL);
     xTaskCreate(vDisplayTask, "DisplayTask", 512, NULL, 1, NULL);
 
