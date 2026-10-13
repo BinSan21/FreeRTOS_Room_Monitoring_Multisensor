@@ -270,17 +270,6 @@ void Display_SetPower(bool on) {
     ssd1306_write_cmd(on ? 0xAF : 0xAE);
 }
 
-void Display_RenderTemperature(float temperature) {
-    char val_buf[24];
-    snprintf(val_buf, sizeof(val_buf), "%.1f C", temperature);
-
-    memset(ssd1306_buffer, 0x00, sizeof(ssd1306_buffer));
-    ssd1306_draw_string(1, 20, "ROOM MONITOR");
-    ssd1306_draw_string(3, 24, "Temperature");
-    ssd1306_draw_string(5, 36, val_buf);
-    ssd1306_update_screen();
-}
-
 void Display_RenderScreen(const SensorData *data, DisplayMode mode) {
     char val_buf[24];
     memset(ssd1306_buffer, 0x00, sizeof(ssd1306_buffer));
